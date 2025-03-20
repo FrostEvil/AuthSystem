@@ -1,11 +1,13 @@
-import NextAuth, { DefaultSession } from "next-auth";
+import NextAuth, { DefaultSession, User } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import DiscordProvider from "next-auth/providers/discord";
 import GitHubProvider from "next-auth/providers/github";
+import Credentials from "next-auth/providers/credentials";
 import { db } from "@/drizzle/db";
 import { UserOAuthAccountTable, UserTable } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { ProviderType, UserRole } from "@/types/type";
+import { getUserData } from "@/drizzle/userQueries";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
@@ -27,12 +29,7 @@ declare module "next-auth" {
   }
 }
 
-export const {
-  handlers,
-  signIn: signInAuth,
-  signOut: signOutAuth,
-  auth,
-} = NextAuth({
+export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET!,
   providers: [
     GoogleProvider({
@@ -47,7 +44,20 @@ export const {
       clientId: GITHUB_CLIENT_ID,
       clientSecret: GITHUB_CLIENT_SECRET,
     }),
+    Credentials({
+      credentials: {
+        email: {},
+        password: {},
+      },
+      async authorize(credentials) {
+        if (!credentials.email || !credentials.password) return null;
+
+        const user = await getUserData(credentials.email as string);
+        return user ? (user as User) : null;
+      },
+    }),
   ],
+  pages: { signIn: "/sign-in" },
   callbacks: {
     async jwt({ token, account, profile }) {
       if (profile && account) {
@@ -107,87 +117,3 @@ export const {
     },
   },
 });
-
-//OLDER VERSION:
-// export const {
-//   handlers,
-//   signIn: signInAuth,
-//   signOut: signOutAuth,
-//   auth,
-// } = NextAuth({
-//   providers: [
-//     GoogleProvider({
-//       clientId: GOOGLE_CLIENT_ID,
-//       clientSecret: GOOGLE_CLIENT_SECRET,
-//     }),
-//     DiscordProvider({
-//       clientId: DISCORD_CLIENT_ID,
-//       clientSecret: DISCORD_CLIENT_SECRET,
-//     }),
-//   ],
-//   callbacks: {
-//     async jwt({ token, account, profile }) {
-//       if (profile && account) {
-//         //Step 1: Check if user already exists in the database
-//         const existingUser = await db
-//           .select()
-//           .from(UserTable)
-//           .where(eq(UserTable.email, profile.email!));
-
-//         if (existingUser.length === 0) {
-//           if (!profile.name || !profile.email) {
-//             throw new Error("User profile must have both name and email");
-//           }
-//           const createUser = {
-//             name: profile.name,
-//             email: profile.email,
-//             role: "user" as UserRole,
-//             createdAt: new Date(),
-//             updatedAt: new Date(),
-//           };
-//           // Step 2: Create a new user if they don't exist
-//           const [newUser] = await db
-//             .insert(UserTable)
-//             .values(createUser)
-//             .returning();
-
-//           // Step 3: Store user ID & role in the JWT
-//           token.id = newUser.id;
-//           token.role = newUser.role;
-//           token.email = newUser.email;
-//         } else {
-//           token.id = existingUser[0].id;
-//           token.role = existingUser[0].role;
-//           token.email = existingUser[0].email;
-//         }
-
-//         // Step 4: Check if OAuth account already exists
-//         const existingOAuthAccount = await db
-//           .select()
-//           .from(UserOAuthAccountTable)
-//           .where(
-//             eq(
-//               UserOAuthAccountTable.providerAccountId,
-//               account.providerAccountId
-//             )
-//           );
-//         if (existingOAuthAccount.length === 0) {
-//           // Step 5: Store OAuth account info
-//           await db.insert(UserOAuthAccountTable).values({
-//             userId: token.id as string,
-//             provider: account.provider as ProviderType,
-//             providerAccountId: account.providerAccountId,
-//           });
-//         }
-//       }
-//       return token;
-//     },
-//     async session({ session, token }) {
-//       // Step 6: Pass user data to session for frontend access
-//       session.user.id = token.id as string;
-//       session.user.role = token.role as UserRole;
-//       session.user.email = token.email as string;
-//       return session;
-//     },
-//   },
-// });

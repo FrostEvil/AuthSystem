@@ -1,4 +1,5 @@
 import { oAuthProviderEnum, userRoleEnum } from "@/drizzle/schema";
+import { Session } from "next-auth";
 
 export type FormErrors = {
   nameError?: string[];

@@ -2,14 +2,12 @@
 
 import {
   handleSignInAuth,
-  handleSignInAuthDiscord,
-  handleSignInAuthGithub,
+  handleSignInCredentials,
   handleSignOut,
-  signIn,
 } from "@/actions/auth-actions";
 import { cn } from "@/lib/utils";
 import { FormErrors } from "@/types/type";
-import { User } from "next-auth";
+import { Session } from "next-auth";
 import { ChangeEvent, useActionState, useEffect, useState } from "react";
 
 type ShowError = {
@@ -23,12 +21,8 @@ type FormData = {
   password: string;
 };
 
-type UserSessionType = {
-  userSession: User | null;
-};
-
-export default function SignUpForm({ userSession }: UserSessionType) {
-  const [state, formAction] = useActionState(signIn, null);
+export default function SignUpForm() {
+  const [state, formAction] = useActionState(handleSignInCredentials, null);
   const [showError, setShowError] = useState<ShowError>({
     emailError: false,
     passwordError: false,
@@ -155,8 +149,7 @@ export default function SignUpForm({ userSession }: UserSessionType) {
       <div className="grid gap-y-6 mt-6">
         <form
           action={async () => {
-            console.log("starting action - google");
-            await handleSignInAuth();
+            await handleSignInAuth("google");
           }}
         >
           <button
@@ -168,8 +161,7 @@ export default function SignUpForm({ userSession }: UserSessionType) {
         </form>
         <form
           action={async () => {
-            console.log("starting action - discord");
-            await handleSignInAuthDiscord();
+            await handleSignInAuth("discord");
           }}
         >
           <button
@@ -181,8 +173,7 @@ export default function SignUpForm({ userSession }: UserSessionType) {
         </form>
         <form
           action={async () => {
-            console.log("starting action - github");
-            await handleSignInAuthGithub();
+            await handleSignInAuth("github");
           }}
         >
           <button
@@ -192,23 +183,6 @@ export default function SignUpForm({ userSession }: UserSessionType) {
             Continue with GitHub
           </button>
         </form>
-      </div>
-      <div>
-        {userSession?.email && (
-          <div className="flex flex-col items-center gap-4 p-4 bg-gray-100 rounded-lg shadow-md w-64">
-            <p className="text-lg font-semibold text-gray-700">
-              Welcome, {userSession?.name}
-            </p>
-            <button
-              onClick={() => {
-                handleSignOut();
-              }}
-              className="px-4 py-2 text-white bg-red-500 rounded-lg hover:bg-red-600 transition duration-300 pointer"
-            >
-              Sign out
-            </button>
-          </div>
-        )}
       </div>
     </>
   );

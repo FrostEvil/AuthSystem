@@ -1,14 +1,13 @@
 "use server";
 
 import { createUser, getUserData, updateUserData } from "@/drizzle/userQueries";
-import { auth, signInAuth, signOutAuth } from "@/lib/auth";
+import { signIn, signOut } from "@/lib/auth";
 import {
   comparePasswords,
   generateSalt,
   hashPassword,
 } from "@/lib/passwordHasher";
-import { deleteSession, getSession, setSession } from "@/lib/sessions";
-import { FormErrors, UserRole } from "@/types/type";
+import { FormErrors } from "@/types/type";
 import { addError } from "@/utils/addError";
 import { signInFormSchema, signUpFormSchema } from "@/utils/formSchemas";
 import { redirect } from "next/navigation";
@@ -97,16 +96,45 @@ export async function signUp(prevState: any, formData: FormData) {
   redirect("/");
 }
 
-export async function signIn(prevState: any, formData: FormData) {
-  const formErrors: FormErrors = {};
+export async function handleSignInAuth(provider: string) {
+  await signIn(provider, { redirectTo: "/" });
+}
+
+export async function handleSignInCredentials(
+  prevState: any,
+  formData: FormData
+) {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+
+  const isValidData = await checkFormData(email, password);
+
+  if (isValidData !== true) return isValidData;
+
+  try {
+    await signIn("credentials", {
+      email: formData.get("email"),
+      password: formData.get("password"),
+      redirect: false,
+    });
+  } catch (error) {
+    console.error(error);
+  }
+  redirect("/");
+}
+
+export async function handleSignOut() {
+  await signOut();
+}
+
+export async function checkFormData(email: string, password: string) {
+  let formErrors: FormErrors = {};
 
   const requiredFields = [
     { field: "email", fieldError: "emailError" },
     { field: "password", fieldError: "passwordError" },
   ];
 
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
   if (!email || !password) {
     if (!email) addError(formErrors, "emailError", "Enter email.");
     if (!password) addError(formErrors, "passwordError", "Enter password.");
@@ -144,62 +172,9 @@ export async function signIn(prevState: any, formData: FormData) {
     salt: user?.salt,
   });
 
-  if (!isCorrectPassword)
+  if (!isCorrectPassword) {
     addError(formErrors, "passwordError", "Incorrect password.");
-
-  setSession({ email });
-  redirect("/");
-}
-
-export async function handleSignInAuth() {
-  await signInAuth("google", { redirectTo: "/" });
-}
-export async function handleSignInAuthDiscord() {
-  await signInAuth("discord", { redirectTo: "/" });
-}
-export async function handleSignInAuthGithub() {
-  await signInAuth("github", { redirectTo: "/" });
-}
-
-export async function handleSignOut() {
-  await deleteSession();
-  await signOutAuth();
-}
-
-type LoggedUser = {
-  id: string;
-  role: UserRole;
-  email: string;
-  name: string;
-};
-
-export async function getUserSessionData(): Promise<LoggedUser | null> {
-  let loggedUser: LoggedUser | null = null;
-  const session = await auth();
-  const cookieSession = await getSession();
-  const cookieUser = await getUserData(cookieSession?.email as string);
-
-  if (session?.user && cookieUser) return null;
-
-  if (session?.user) {
-    loggedUser = {
-      id: session.user.id,
-      role: session.user.role,
-      email: session.user.email,
-      name: session.user.name,
-    };
-    return loggedUser;
+    return formErrors;
   }
-
-  if (cookieUser) {
-    loggedUser = {
-      id: cookieUser.id,
-      role: cookieUser.role,
-      email: cookieUser.email,
-      name: cookieUser.name,
-    };
-    return loggedUser;
-  }
-
-  return null;
+  return true;
 }

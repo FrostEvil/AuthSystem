@@ -1,18 +1,14 @@
-import { getUserSessionData } from "@/actions/auth-actions";
 import SignInForm from "@/components/SignInForm";
-import { User } from "next-auth";
 import Link from "next/link";
 
 export default async function SignIn() {
-  const userSessionData = await getUserSessionData();
-  console.log("user", userSessionData);
   return (
     <div className="flex flex-col w-full h-screen justify-center items-center bg-gradient-to-b from-blue-100 to-blue-50">
       <div className="bg-white shadow-lg rounded p-10 w-[400px] border border-blue-200">
         <h2 className="text-3xl font-bold text-gray-700 mb-6">
           Log Into Your Account
         </h2>
-        <SignInForm userSession={userSessionData} />
+        <SignInForm />
       </div>
       <div className="mt-6 w-[400px]">
         <div className="bg-white shadow-lg rounded p-6 border border-blue-200">
