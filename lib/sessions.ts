@@ -1,7 +1,9 @@
 import "server-only";
+
 import { encrypt, decrypt } from "./jwt";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserData } from "@/drizzle/userQueries";
 
 const SESSION_EXPIRATION = 10;
 const COOKIE_SESSION_KEY = "session-id";
@@ -42,5 +44,5 @@ export async function getSession() {
 }
 
 export async function deleteSession() {
-  (await cookies()).set(COOKIE_SESSION_KEY, "", { expires: new Date(0) });
+  (await cookies()).delete(COOKIE_SESSION_KEY);
 }
