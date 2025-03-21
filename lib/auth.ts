@@ -8,6 +8,7 @@ import { UserOAuthAccountTable, UserTable } from "@/drizzle/schema";
 import { eq } from "drizzle-orm";
 import { ProviderType, UserRole } from "@/types/type";
 import { getUserData } from "@/drizzle/userQueries";
+import { authConfig } from "@/auth.config";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
@@ -30,7 +31,7 @@ declare module "next-auth" {
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  secret: process.env.NEXTAUTH_SECRET!,
+  ...authConfig,
   providers: [
     GoogleProvider({
       clientId: GOOGLE_CLIENT_ID,
