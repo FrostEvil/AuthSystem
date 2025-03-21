@@ -1,13 +1,12 @@
 "use server";
 
-import { OAuthProvider } from "@/drizzle/schema";
-import { createUser, existingUser, isUserExist } from "@/drizzle/userQueries";
+import { createUser, getUserData, updateUserData } from "@/drizzle/userQueries";
+import { signIn, signOut } from "@/lib/auth";
 import {
   comparePasswords,
   generateSalt,
   hashPassword,
 } from "@/lib/passwordHasher";
-import { setSession } from "@/lib/sessions";
 import { FormErrors } from "@/types/type";
 import { addError } from "@/utils/addError";
 import { signInFormSchema, signUpFormSchema } from "@/utils/formSchemas";
@@ -54,8 +53,9 @@ export async function signUp(prevState: any, formData: FormData) {
   }
 
   // Check if the user already exists
-  const existingUser = await isUserExist(email);
-  if (existingUser) {
+  const existingUser = await getUserData(email);
+
+  if (existingUser && existingUser.password) {
     addError(
       formErrors,
       "emailError",
@@ -64,14 +64,26 @@ export async function signUp(prevState: any, formData: FormData) {
     return formErrors;
   }
 
+  if (existingUser && !existingUser.password) {
+    try {
+      const salt = generateSalt();
+      const hashedPassword = await hashPassword(password, salt);
+
+      await updateUserData(name, hashedPassword, salt, existingUser.email);
+    } catch (error) {
+      console.error(error);
+      addError(formErrors, "globalError", "Unable to create account.");
+      return formErrors;
+    }
+    redirect("/");
+  }
+
   try {
-    // Create salt nad hashed password
+    // Create salt and hashed password
     const salt = generateSalt();
     const hashedPassword = await hashPassword(password, salt);
-
     //Create user
     const user = await createUser(name, email, hashedPassword, salt);
-
     if (!user) {
       addError(formErrors, "globalError", "Unable to create account.");
       return formErrors;
@@ -84,16 +96,45 @@ export async function signUp(prevState: any, formData: FormData) {
   redirect("/");
 }
 
-export async function signIn(prevState: any, formData: FormData) {
-  const formErrors: FormErrors = {};
+export async function handleSignInAuth(provider: string) {
+  await signIn(provider, { redirectTo: "/" });
+}
+
+export async function handleSignInCredentials(
+  prevState: any,
+  formData: FormData
+) {
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
+
+  const isValidData = await checkFormData(email, password);
+
+  if (isValidData !== true) return isValidData;
+
+  try {
+    await signIn("credentials", {
+      email: formData.get("email"),
+      password: formData.get("password"),
+      redirect: false,
+    });
+  } catch (error) {
+    console.error(error);
+  }
+  redirect("/");
+}
+
+export async function handleSignOut() {
+  await signOut();
+}
+
+export async function checkFormData(email: string, password: string) {
+  let formErrors: FormErrors = {};
 
   const requiredFields = [
     { field: "email", fieldError: "emailError" },
     { field: "password", fieldError: "passwordError" },
   ];
 
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
   if (!email || !password) {
     if (!email) addError(formErrors, "emailError", "Enter email.");
     if (!password) addError(formErrors, "passwordError", "Enter password.");
@@ -118,7 +159,7 @@ export async function signIn(prevState: any, formData: FormData) {
     return formErrors;
   }
 
-  const user = await existingUser(email);
+  const user = await getUserData(email);
 
   if (!user || !user.password || !user.salt) {
     addError(formErrors, "emailError", "User with this email does not exist.");
@@ -131,13 +172,9 @@ export async function signIn(prevState: any, formData: FormData) {
     salt: user?.salt,
   });
 
-  if (!isCorrectPassword)
+  if (!isCorrectPassword) {
     addError(formErrors, "passwordError", "Incorrect password.");
-
-  setSession({ email });
-  redirect("/");
-}
-
-export async function oAuthSignIn(provider: OAuthProvider) {
-  //TODO: Get oauth url;
+    return formErrors;
+  }
+  return true;
 }

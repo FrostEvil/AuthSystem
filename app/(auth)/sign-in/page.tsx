@@ -1,10 +1,7 @@
-import { auth } from "@/app/api/auth/[...nextauth]/route";
 import SignInForm from "@/components/SignInForm";
 import Link from "next/link";
 
 export default async function SignIn() {
-  // const session = await auth();
-  // console.log("session", session);
   return (
     <div className="flex flex-col w-full h-screen justify-center items-center bg-gradient-to-b from-blue-100 to-blue-50">
       <div className="bg-white shadow-lg rounded p-10 w-[400px] border border-blue-200">

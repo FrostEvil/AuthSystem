@@ -22,18 +22,21 @@ export async function createUser(
   return result[0].name;
 }
 
-export async function isUserExist(email: string) {
+export async function getUserData(email: string) {
   const existingUser = await db.query.UserTable.findFirst({
     where: eq(UserTable.email, email),
   });
-
-  return existingUser ? true : false;
+  return existingUser;
 }
 
-export async function existingUser(email: string) {
-  const user = await db.query.UserTable.findFirst({
-    columns: { password: true, salt: true },
-    where: eq(UserTable.email, email),
-  });
-  return user;
+export async function updateUserData(
+  name: string,
+  password: string,
+  salt: string,
+  email: string
+) {
+  await db
+    .update(UserTable)
+    .set({ name, password, salt })
+    .where(eq(UserTable.email, email));
 }
